@@ -1,0 +1,23 @@
+{
+  "name": "deepseek-tts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "QQ Agent 技能：把一句话合成 QQ 语音消息，走 DeepSeek 官方语音合成接口",
+  "keywords": [
+    "qq-agent",
+    "snowluma",
+    "skill",
+    "tts",
+    "deepseek",
+    "voice"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node tests/smoke.mjs",
+    "live": "node tools/live-check.mjs"
+  }
+}

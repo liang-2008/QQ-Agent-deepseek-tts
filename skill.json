@@ -1,0 +1,94 @@
+{
+  "id": "deepseek-tts",
+  "name": "语音说话（DeepSeek 官方）",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "category": "media",
+  "description": "让机器人真的开口：把一句话合成语音消息发到当前会话，而不是打字。走 DeepSeek 官方语音合成接口（api.deepseek.com/v1/tools/tts），一把 DeepSeek API Key 就能用，不需要另开通 TTS 服务。音色是官方固定的两个 ID：stella（海星，女声，默认）和 tide（暗潮，男声）；语种按文本自动识别，中英日韩粤等十种不用选。支持整段（HTTP）和流式（WebSocket）两种合成方式，返回的 PCM 会自动补 WAV 头，QQ 端的 silk 转码照样能认。什么时候该说话由模型自己判断。",
+  "author": "QQ Agent",
+  "enabledByDefault": false,
+  "permissions": [
+    "web_fetch"
+  ],
+  "settings": {
+    "baseUrl": "https://api.deepseek.com",
+    "apiKey": "",
+    "voiceId": "stella",
+    "format": "wav",
+    "transport": "http",
+    "filterMarkdown": true,
+    "maxChars": 120,
+    "alsoSendText": false,
+    "timeoutMs": 60000
+  },
+  "configSchema": {
+    "baseUrl": {
+      "type": "string",
+      "label": "接口地址",
+      "description": "默认 https://api.deepseek.com。插件会自动补齐路径：填 https://api.deepseek.com → /v1/tools/tts；填 https://api.deepseek.com/v1 → /v1/tools/tts；也可以直接写全 https://api.deepseek.com/v1/tools/tts。只有走自建反向代理/中转时才需要改这一项，中转地址必须同样提供 tools/tts。"
+    },
+    "apiKey": {
+      "type": "string",
+      "label": "DeepSeek API Key（必填）",
+      "secret": true,
+      "description": "platform.deepseek.com → API keys 里建的 sk- 开头 Key，和聊天用的是同一把，不用另外申请。TTS 按字符计费（每万字符 3 元，现价 5 折），不是免费额度覆盖的东西，余额见控制台。"
+    },
+    "voiceId": {
+      "type": "enum",
+      "label": "音色",
+      "values": [
+        "stella",
+        "tide"
+      ],
+      "description": "官方只有两个音色：stella（海星，女声，默认）、tide（暗潮，男声）。没有克隆、没有音色描述，也没有情绪/语速参数——想换味道只能改措辞（短句、语气词、标点），见 README「怎么让她听起来不像念稿」。"
+    },
+    "format": {
+      "type": "enum",
+      "label": "传输格式",
+      "values": [
+        "wav",
+        "pcm"
+      ],
+      "description": "只能二选一：官方不提供 mp3。wav（默认）= 带文件头，最省心；pcm = 24kHz/16bit/单声道的裸数据，体积比 wav 小 44 字节，但插件仍会自己补 WAV 头再发，因为 QQ 语音要一个完整音频文件，裸 PCM 协议端认不出来。除非你在排查体积问题，否则保持 wav。"
+    },
+    "transport": {
+      "type": "enum",
+      "label": "合成方式",
+      "values": [
+        "http",
+        "ws"
+      ],
+      "description": "http（默认）= 一次 POST 整段合成，返回一整段音频，最简单也最稳。ws = WebSocket 流式合成（官方 wss://api.deepseek.com/v1/tools/tts），把文字分段送进去、边合成边收音频；失败时会自动退回 http 一次。单条语音只有一两句话，http 就够了，一般不用改。"
+    },
+    "filterMarkdown": {
+      "type": "boolean",
+      "label": "让服务端先去掉 Markdown",
+      "description": "默认开。官方参数 filter_markdown，在朗读前把 **加粗**、# 标题、列表符号这类格式去掉。插件自己也会洗一遍（还会顺手去掉表情符号），两个一起开最保险。关掉它只在你想让服务端保留某些符号时有用，一般不关。"
+    },
+    "maxChars": {
+      "type": "number",
+      "label": "单条语音字数上限",
+      "description": "默认 120。超了直接拒发并让模型拆成短句——QQ 语音太长会被拒收，念出来也像念稿；官方单次最多 1 万计费字符（汉字算 2 个），所以真正的硬限制远在这里之上，这个数字是给聊天体验定的。"
+    },
+    "alsoSendText": {
+      "type": "boolean",
+      "label": "语音之外再补一条文字",
+      "description": "默认关（只发语音）。打开后同一条内容会先发语音、再发一条文字，方便听不了语音的人。"
+    },
+    "timeoutMs": {
+      "type": "number",
+      "label": "单条合成超时（毫秒）",
+      "description": "默认 60000。超时就放弃这条语音并把原因告诉模型，不会卡住整轮对话。官方提示单次合成最多 30 分钟音频，但聊天场景用不到；网络慢或走中转时可以适当调大。"
+    }
+  },
+  "prompt": {
+    "sections": [
+      {
+        "id": "deepseek-tts-note",
+        "title": "开口说话",
+        "priority": 36,
+        "content": "你有一个 deepseek-tts__say 工具，可以把一句话用自己的声音**说出来**（真语音消息），而不是打字。只在这些情况用：用户明确要你用语音（「用语音回我」「说句话」「念一下」「唱一段」），或语音明显比文字更合适（对方发语音给你、要表达语气情绪、要报晚安这类短话）。其余情况照常打字——语音比文字慢也更贵，别为了好玩刷语音，也不要每条回复都说话。say 一次只适合一句短话（一两句、60 字内最佳），话多就分几次调用或改回打字。发完语音不要再把同一句话用文字发一遍，也不要汇报「已发送」。这个接口**没有**情绪、语速、方言参数，音色只有 stella（女）和 tide（男）两个固定 ID：想让声音听起来对味，只能改措辞——短句、少用书面语、加语气词，而不是在 text 里写「（撒娇地）」。"
+      }
+    ]
+  }
+}
